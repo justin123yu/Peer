@@ -3,16 +3,17 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import OpenAI from "openai";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { generateSampleData } from './generate-sample-data.js';
+import { config } from './config.js';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.VITE_OPENAI_API_KEY,
+  apiKey: config.openai.apiKey,
 });
 
 // Initialize Qdrant client
 const qdrant = new QdrantClient({
-  url: process.env.QDRANT_URL || "http://localhost:6333",
-  apiKey: process.env.QDRANT_API_KEY,
+  url: config.qdrant.url,
+  apiKey: config.qdrant.apiKey,
 });
 
 // Collection name in Qdrant

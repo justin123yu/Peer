@@ -117,10 +117,7 @@ onMounted(() => {
       };
 
       recognition.onerror = (event: SpeechRecognitionEvent) => {
-        // eslint-disable-next-line no-console
-        console.error("Speech recognition error:", event.error);
         isListening.value = false;
-        // エラーが発生しても会話が継続中なら再開
         if (conversationActive.value && !conversationFinished.value) {
           setTimeout(() => {
             startListening();
@@ -309,25 +306,17 @@ const summarizeConversation = async () => {
   isProcessing.value = true;
 
   try {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OpenAI API key is not set.");
-    }
-
-    // これまでの全会話を収集
     const conversationHistory = messages.value.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("/api/chat-completion", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -336,6 +325,7 @@ const summarizeConversation = async () => {
           },
           ...conversationHistory,
         ],
+        model: "gpt-4",
         max_tokens: 500,
       }),
     });
@@ -347,13 +337,10 @@ const summarizeConversation = async () => {
     const data = await response.json();
     conversationSummary.value = data.choices[0].message.content.trim();
 
-    // 要約を音声で読み上げる
     isAISpeaking.value = true;
     await speakText(conversationSummary.value);
     isAISpeaking.value = false;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("AI summary error:", error);
     conversationSummary.value = "Could not generate summary.";
   } finally {
     isProcessing.value = false;
@@ -364,20 +351,13 @@ const getAIResponse = async (userText: string) => {
   isProcessing.value = true;
 
   try {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OpenAI API key is not set.");
-    }
-
-    // 会話の履歴を含める
     const conversationHistory = messages.value
-      .slice(-6) // 最後の6メッセージだけを含める
+      .slice(-6)
       .map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
 
-    // 直近のユーザーメッセージを削除（これから新たに追加するため）
     if (
       conversationHistory.length > 0 &&
       conversationHistory[conversationHistory.length - 1].role === "user"
@@ -385,14 +365,12 @@ const getAIResponse = async (userText: string) => {
       conversationHistory.pop();
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("/api/chat-completion", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -402,6 +380,7 @@ const getAIResponse = async (userText: string) => {
           ...conversationHistory,
           { role: "user", content: userText },
         ],
+        model: "gpt-4",
         max_tokens: 1000,
       }),
     });
@@ -415,11 +394,7 @@ const getAIResponse = async (userText: string) => {
     addMessage("assistant", aiResponse);
     handleAIResponse(aiResponse);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("AI response error:", error);
     addMessage("assistant", "Sorry, an error occurred. Please try again.");
-
-    // エラーでも会話を継続
     isAISpeaking.value = false;
   } finally {
     isProcessing.value = false;
@@ -442,7 +417,6 @@ const speakText = (text: string): Promise<void> => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "en-US";
 
-      // Find an English voice if available
       const voices = window.speechSynthesis.getVoices();
       const englishVoice = voices.find((voice) => voice.lang.includes("en-US"));
       if (englishVoice) {
@@ -455,8 +429,6 @@ const speakText = (text: string): Promise<void> => {
 
       window.speechSynthesis.speak(utterance);
     } else {
-      // eslint-disable-next-line no-console
-      console.error("This browser does not support speech synthesis.");
       resolve();
     }
   });
@@ -467,7 +439,6 @@ const sendUserContext = async () => {
   serverResponse.value = null;
 
   try {
-    // Gather user info as before
     const userInfo =
       conversationSummary.value ||
       messages.value
@@ -475,23 +446,18 @@ const sendUserContext = async () => {
         .map((msg) => msg.content)
         .join(" ");
 
-    // Example: tags could be extracted from userInfo or set statically for demo
-    // You may want to improve this logic to extract real tags
-    const tags = ["example", "tags"]; // <-- Replace with your actual tags logic
+    const tags = ["example", "tags"];
 
-    const response = await fetch(
-      "/api/user-context",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: "Lin",
-          user_context: userInfo || "No information is available about this user yet.",
-        }),
+    const response = await fetch('/api/user-context', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    );
+      body: JSON.stringify({
+        name: "Lin",
+        user_context: userInfo || "No information is available about this user yet.",
+      }),
+    });
 
     if (!response.ok) {
       throw new Error(`Server Error: ${response.status}`);
@@ -500,8 +466,6 @@ const sendUserContext = async () => {
     const data = await response.json();
     serverResponse.value = data;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("Server response error:", error);
     serverResponse.value = {
       error: "An error occurred while communicating with the server.",
     };
