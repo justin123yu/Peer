@@ -1,21 +1,101 @@
-# Vue 3 + Vite
+# Peer
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+A conversational AI application that helps users connect with like-minded individuals.
 
-While this project uses Vue.js, Vite supports many popular JS frameworks. [See all the supported frameworks](https://vitejs.dev/guide/#scaffolding-your-first-vite-project).
+## Features
 
-## Deploy Your Own
+- Voice-based conversation with AI
+- Automatic profile generation
+- Smart matching with other users
+- Real-time conversation analysis
 
-Deploy your own Vite project with Vercel.
+## Debug Panel
 
-[![Deploy with Vercel](https://vercel.com/button)]([https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/vite&template=vite](https://vercel.com/new/clone?demo-description=Vite%2FVue.js%20site%20that%20can%20be%20deployed%20to%20Vercel&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F2T4BUF3mEBKPJF3jcjU6nS%2F0d4a02e7c48091d13814a4ab513e8734%2FScreen_Shot_2022-04-13_at_10.05.56_PM.png&demo-title=Vite%20-%20Vue&demo-url=https%3A%2F%2Fvite-vue-template.vercel.app%2F&from=templates&project-name=Vite%20-%20Vue&repository-name=vite-vue&repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fvercel%2Ftree%2Fmain%2Fexamples%2Fvite&skippable-integrations=1))
+The application includes a debug panel that can be accessed using keyboard shortcuts:
 
-_Live Example: https://vite-vue-template.vercel.app_
+- **Mac**: Press `Command (⌘) + .`
+- **Windows**: Press `Ctrl + .`
 
-### Deploying From Your Terminal
+The debug panel provides:
+- Current status of various states (active, finished, listening, speaking, etc.)
+- Conversation log
+- Detected topics
+- Controls for ending conversation, resuming, pausing, and sending user context
 
-You can deploy your new Vite project with a single command from your terminal using [Vercel CLI](https://vercel.com/download):
+## Environment Variables
 
-```shell
-$ vercel
+The application requires the following environment variables:
+
 ```
+OPENAI_API_KEY=your_openai_api_key_here
+QDRANT_URL=your_qdrant_url_here
+QDRANT_API_KEY=your_qdrant_api_key_here
+```
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies
+3. Set up environment variables
+4. Run the development server
+
+## License
+
+MIT
+
+## Prerequisites
+
+- Node.js (v20.13.1 or higher)
+- npm or pnpm
+- Vercel CLI (for deployment)
+
+## Environment Setup
+
+This project uses the `gpt-4o` model for speech recognition and AI responses.
+
+## Local Development
+
+1. Install dependencies:
+```sh
+pnpm install
+```
+
+2. Start the development server:
+```sh
+pnpm dev
+```
+
+The application will be available at `http://localhost:5173`
+
+## Deployment
+
+### Vercel Deployment
+
+1. Install Vercel CLI:
+```sh
+npm install -g vercel
+```
+
+2. Login to Vercel:
+```sh
+vercel login
+```
+
+3. Deploy the project:
+```sh
+vercel
+```
+
+4. For subsequent deployments:
+```sh
+vercel --prod
+```
+
+## Credits
+
+Special thanks to the following contributors who helped build this application:
+
+- Akiho Nagao
+- Lin Myat Ko
+- Sei S
+- Calvin Hu
