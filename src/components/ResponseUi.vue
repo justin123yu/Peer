@@ -44,7 +44,6 @@ const filteredResponse = computed(() => {
 });
 
 // tags を重複しないように抽出
-// Extract tags without duplicates
 const uniqueTags = computed(() => {
   return [
     ...new Set(filteredResponse.value.flatMap((item) => item.tags || [])),
@@ -163,3 +162,10 @@ const uniqueTags = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.prose {
+  line-height: 1.6;
+  color: #374151;
+}
+</style>

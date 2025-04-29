@@ -58,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await generateSampleData();
     }
 
-    const { name, user_context } = req.body;
+    const { name, user_context, tags } = req.body;
 
     if (!user_context) {
       return res.status(400).json({ error: "user_context field is required in body" });
@@ -75,6 +75,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const pointId = crypto.randomUUID();
+    // Generate a random avatar URL using DiceBear API
+    const avatarStyle = ['adventurer', 'avataaars', 'bottts', 'micah', 'personas'][Math.floor(Math.random() * 5)];
+    const randomSeed = Math.random().toString(36).substring(7);
+    const img_url = `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${randomSeed}`;
 
     try {
       await qdrant.upsert(COLLECTION_NAME, {
@@ -86,6 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               id: pointId,
               name,
               user_context,
+              tags,
+              img_url,
               timestamp: new Date().toISOString(),
             },
           },
@@ -106,7 +112,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         with_payload: true,
         with_vector: false,
       });
-      console.log("Database search results:", searchResults);
     } catch (searchError) {
       return res.status(500).json({
         error: "Failed to search Qdrant",

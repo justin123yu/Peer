@@ -71,6 +71,8 @@ const userTopics = ref(new Set<string>());
 const conversationSummary = ref("");
 const conversationFinished = ref(false);
 const showDebugPanel = ref(false);
+const showNameInput = ref(true);
+const userName = ref("");
 // 会話の完了判定に必要なトピック
 // Topics required for conversation completion
 const requiredTopics = [
@@ -293,11 +295,19 @@ const finishConversation = async () => {
     "Thank you for chatting with me! I've learned a lot about you. Let me summarize what I know so far.",
   );
 
-  // 会話を要約するためにAIを呼び出す
-  await summarizeConversation();
+  try {
+    // 会話を要約するためにAIを呼び出す
+    await summarizeConversation();
 
-  // サーバーにユーザーコンテキストを送信
-  await sendUserContext();
+    // サーバーにユーザーコンテキストを送信
+    await sendUserContext();
+  } catch (error) {
+    console.error("Error in conversation finish process:", error);
+    addMessage(
+      "assistant",
+      "I encountered an error while processing your information. Please try again later."
+    );
+  }
 };
 
 // 会話の要約を作成
@@ -321,7 +331,7 @@ const summarizeConversation = async () => {
           {
             role: "system",
             content:
-              "Summarize what you've learned about the user in a concise, structured format. Include their hobbies, work, education, family, and location information if available. Format the summary as bullet points.",
+              "Summarize what you've learned about the user in a concise, structured format. Include their hobbies, work, education, family, and location information if available. Format the summary as bullet points. After the summary, generate a list of relevant tags (single words) that describe the user's interests, skills, and background. Format the tags as a comma-separated list at the end of your response, prefixed with 'TAGS:'",
           },
           ...conversationHistory,
         ],
@@ -335,7 +345,18 @@ const summarizeConversation = async () => {
     }
 
     const data = await response.json();
-    conversationSummary.value = data.choices[0].message.content.trim();
+    const fullResponse = data.choices[0].message.content.trim();
+    
+    // Extract tags from the response
+    const tagsMatch = fullResponse.match(/TAGS:(.*)/);
+    if (tagsMatch) {
+      const tagsString = tagsMatch[1].trim();
+      const extractedTags = tagsString.split(',').map((tag: string) => tag.trim().toLowerCase());
+      userTopics.value = new Set([...userTopics.value, ...extractedTags]);
+    }
+    
+    // Remove the TAGS: part from the summary
+    conversationSummary.value = fullResponse.replace(/TAGS:.*/, '').trim();
 
     isAISpeaking.value = true;
     await speakText(conversationSummary.value);
@@ -446,16 +467,15 @@ const sendUserContext = async () => {
         .map((msg) => msg.content)
         .join(" ");
 
-    const tags = ["example", "tags"];
-
     const response = await fetch('/api/user-context', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: "Lin",
+        name: userName.value || "Anonymous User",
         user_context: userInfo || "No information is available about this user yet.",
+        tags: Array.from(userTopics.value)
       }),
     });
 
@@ -473,10 +493,41 @@ const sendUserContext = async () => {
     isSendingContext.value = false;
   }
 };
+
+const handleNameSubmit = () => {
+  if (userName.value.trim()) {
+    showNameInput.value = false;
+    startConversation();
+  }
+};
 </script>
 
 <template>
   <div class="flex h-screen bg-[#A7C2D3]">
+    <!-- Name Input Modal -->
+    <div v-if="showNameInput" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">Welcome to Peer</h2>
+        <p class="text-gray-600 mb-6">Please enter your name to start the conversation</p>
+        <p class="text-sm text-gray-500 mb-4">After starting, say "Hello Peer!" to begin the conversation</p>
+        <div class="flex gap-4">
+          <input
+            v-model="userName"
+            type="text"
+            placeholder="Enter your name"
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            @keyup.enter="handleNameSubmit"
+          />
+          <button
+            @click="handleNameSubmit"
+            class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Start
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- プロファイル完成度インジケーター（固定位置：画面下部中央） -->
     <div
       v-if="!conversationFinished && !serverResponse"
