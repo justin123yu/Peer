@@ -305,19 +305,7 @@ const updateProfileCompleteness = (userMessage: string) => {
     }
   });
 
-  // Add debug logging
-  console.log("Profile Completeness:", {
-    charCompleteness,
-    messageCompleteness,
-    totalPercentage: completenessPercentage,
-    currentCharCount,
-    currentMessageCount,
-    targetCharCount,
-    targetMessageCount
-  });
-
   if (completenessPercentage >= 100) {
-    console.log("Conversation finished - Conditions met");
     finishConversation();
   }
 };
@@ -349,7 +337,6 @@ const finishConversation = async () => {
     // サーバーにユーザーコンテキストを送信
     await sendUserContext();
   } catch (error) {
-    console.error("Error in conversation finish process:", error);
     addMessage(
       "assistant",
       "I encountered an error while processing your information. Please try again later."
