@@ -101,43 +101,86 @@ const requiredTopics = [
 // SpeechRecognition setup
 let recognition: SpeechRecognition | null = null;
 
-onMounted(() => {
-  // Check if Web Speech API is supported
-  if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
-    const SpeechRecognitionAPI =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognitionAPI) {
-      recognition = new SpeechRecognitionAPI();
-      recognition.lang = "en-US";
-      recognition.continuous = false;
-      recognition.interimResults = false;
+// Constants for speech recognition configuration
+const SPEECH_CONFIG = {
+  language: 'en-US',
+  continuous: false,
+  interimResults: false,
+  endDelay: 5000, // 5 seconds delay after recognition ends
+  errorRetryDelay: 1000, // 1 second delay before retrying after error
+};
 
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[0][0].transcript;
-        addMessage("user", transcript);
-        getAIResponse(transcript);
-      };
-
-      recognition.onerror = (event: SpeechRecognitionEvent) => {
-        isListening.value = false;
-        if (conversationActive.value && !conversationFinished.value) {
-          setTimeout(() => {
-            startListening();
-          }, 1000);
-        }
-      };
-
-      recognition.onend = () => {
-        setTimeout(() => {
-          isListening.value = false;
-        }, 6000); // Delay to allow for user feedback
-      };
-    }
-  } else {
+// Initialize speech recognition
+const initializeSpeechRecognition = () => {
+  if (!("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
     alert("This browser does not support speech recognition.");
+    return;
   }
 
-  // デバッグパネル表示のためのキーボードショートカット
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognitionAPI) return;
+
+  recognition = new SpeechRecognitionAPI();
+  recognition.lang = SPEECH_CONFIG.language;
+  recognition.continuous = SPEECH_CONFIG.continuous;
+  recognition.interimResults = SPEECH_CONFIG.interimResults;
+
+  setupRecognitionHandlers();
+};
+
+// Setup all recognition event handlers
+const setupRecognitionHandlers = () => {
+  if (!recognition) return;
+  recognition.onresult = handleRecognitionResult;
+  recognition.onerror = handleRecognitionError;
+  recognition.onend = handleRecognitionEnd;
+};
+
+// Handle successful speech recognition
+const handleRecognitionResult = (event: SpeechRecognitionEvent) => {
+  const transcript = event.results[0][0].transcript;
+  addMessage("user", transcript);
+  getAIResponse(transcript);
+};
+
+// Handle recognition errors
+const handleRecognitionError = (event: SpeechRecognitionEvent) => {
+  isListening.value = false;
+  if (conversationActive.value && !conversationFinished.value) {
+    setTimeout(() => {
+      startListening();
+    }, SPEECH_CONFIG.errorRetryDelay);
+  }
+};
+
+// Handle recognition end
+const handleRecognitionEnd = () => {
+  setTimeout(() => {
+    isListening.value = false;
+  }, SPEECH_CONFIG.endDelay);
+};
+
+// Start listening for speech
+const startListening = () => {
+  if (!canStartListening()) return;
+  
+  isListening.value = true;
+  recognition?.start();
+};
+
+// Check if we can start listening
+const canStartListening = (): boolean => {
+  return Boolean(
+    recognition &&
+    !isListening.value &&
+    !isProcessing.value &&
+    conversationActive.value &&
+    !conversationFinished.value
+  );
+};
+
+onMounted(() => {
+  initializeSpeechRecognition();
   document.addEventListener("keydown", handleKeyDown);
 });
 
@@ -209,19 +252,6 @@ const toggleConversation = () => {
   }
 };
 
-const startListening = () => {
-  if (
-    recognition &&
-    !isListening.value &&
-    !isProcessing.value &&
-    conversationActive.value &&
-    !conversationFinished.value
-  ) {
-    isListening.value = true;
-    recognition.start();
-  }
-};
-
 const addMessage = (role: "user" | "assistant", content: string) => {
   messages.value.push({ role, content });
 
@@ -236,6 +266,7 @@ const addMessage = (role: "user" | "assistant", content: string) => {
 const updateProfileCompleteness = (userMessage: string) => {
   // 文字数の目標値（1000文字で100%とする）
   const targetCharCount = 100;
+  const targetMessageCount = 5;
 
   // すべてのユーザーメッセージを集計
   const allUserMessages = messages.value
@@ -245,12 +276,24 @@ const updateProfileCompleteness = (userMessage: string) => {
 
   // 現在の文字数を計算
   const currentCharCount = allUserMessages.length;
+  const currentMessageCount = messages.value.filter(
+    (msg) => msg.role === "user"
+  ).length;
 
-  // 進捗率の計算（ただし100%を超えないようにする）
-  const completenessPercentage = Math.min(
-    100,
-    Math.floor((currentCharCount / targetCharCount) * 100),
+  // 文字数による進捗率（50%）
+  const charCompleteness = Math.min(
+    50,
+    Math.floor((currentCharCount / targetCharCount) * 50)
   );
+
+  // メッセージ数による進捗率（50%）
+  const messageCompleteness = Math.min(
+    50,
+    Math.floor((currentMessageCount / targetMessageCount) * 50)
+  );
+
+  // 合計進捗率
+  const completenessPercentage = charCompleteness + messageCompleteness;
 
   // 進捗を更新
   profileCompleteness.value = completenessPercentage;
@@ -262,15 +305,19 @@ const updateProfileCompleteness = (userMessage: string) => {
     }
   });
 
-  // プロファイルが85%以上完成したら自動終了
-  // または文字数が1000文字を超え、かつ最低5回の会話が行われていれば終了
-  const userMessagesCount = messages.value.filter(
-    (msg) => msg.role === "user",
-  ).length;
-  if (
-    (profileCompleteness.value >= 85 && userMessagesCount >= 5) ||
-    (currentCharCount >= targetCharCount && userMessagesCount >= 5)
-  ) {
+  // Add debug logging
+  console.log("Profile Completeness:", {
+    charCompleteness,
+    messageCompleteness,
+    totalPercentage: completenessPercentage,
+    currentCharCount,
+    currentMessageCount,
+    targetCharCount,
+    targetMessageCount
+  });
+
+  if (completenessPercentage >= 100) {
+    console.log("Conversation finished - Conditions met");
     finishConversation();
   }
 };
@@ -396,7 +443,7 @@ const getAIResponse = async (userText: string) => {
           {
             role: "system",
             content: `Hi, I want you to ask questions about my interests, skills, and background. So, that you can pin point the industries and missions that I am interested in.
-            Ask questions one at a time and keep an conversational flow after each response. Ensure every response has a follow up questions that dives deeper into learning about the user.`,
+            Ask questions one at a time and keep an conversational flow after each response. Ensure every response has a follow up questions that dives deeper into learning about the user. Don't ask me things that won't help you learn about me.`,
           },
           ...conversationHistory,
           { role: "user", content: userText },
